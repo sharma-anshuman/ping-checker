@@ -58,6 +58,6 @@ def main():
 if __name__ == '__main__':
     while True:
         main()
-        time.sleep(5*60)  # calling the main after every 2 minutes
+        time.sleep(5*60)  # calling the main after every 5 minutes
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
