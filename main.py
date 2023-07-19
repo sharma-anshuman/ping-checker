@@ -7,6 +7,8 @@ import datetime as dt
 
 from pythonping import ping
 
+initial_data = {"devices_data": []}
+
 
 def get_status() -> list:
     """
@@ -18,14 +20,18 @@ def get_status() -> list:
         A list "status" having status of all the device in binary format i.e. 0 or 1
     """
     status = []
-    with open('./device_data.json', 'r') as dataFile:
-        data: Any = json.load(dataFile)
-        for device in data['devices_data']:
-            is_connected = list(ping(device['ip_address'], verbose=False, count=1))
-            if str(is_connected[0]) == "Request timed out":
-                status.append(0)
-            else:
-                status.append(1)
+    try:
+        with open('./device_data.json', 'r') as dataFile:
+            data: Any = json.load(dataFile)
+            for device in data['devices_data']:
+                is_connected = list(ping(device['ip_address'], verbose=False, count=1))
+                if str(is_connected[0]) == "Request timed out":
+                    status.append(0)
+                else:
+                    status.append(1)
+    except FileNotFoundError:
+        with open('./device_data.json', 'a') as data_file:
+            json.dump(initial_data, data_file, indent=2)
     return status
 
 
@@ -38,13 +44,17 @@ def update_csv(status: list) -> None:
     :return:
         None
     """
-    with open('./device_data.json', 'r') as dataFile:
-        data: Any = json.load(dataFile)
-        status_csv: Any = open('./device_pings.csv', 'a')
-        add_csv: Any = writer(status_csv)
-        for idx, device in enumerate(data['devices_data']):
-            add_csv.writerow([device["id"], device["device_name"], status[idx], dt.datetime.now().time()])
-        status_csv.close()
+    try:
+        with open('./device_data.json', 'r') as dataFile:
+            data: Any = json.load(dataFile)
+            status_csv: Any = open('./device_pings.csv', 'a')
+            add_csv: Any = writer(status_csv)
+            for idx, device in enumerate(data['devices_data']):
+                add_csv.writerow([device["id"], device["device_name"], status[idx], dt.datetime.now().time()])
+            status_csv.close()
+    except FileNotFoundError:
+        with open('./device_data.json', 'a') as data_file:
+            json.dump(initial_data, data_file, indent=2)
 
 
 def list_devices() -> None:
@@ -53,10 +63,14 @@ def list_devices() -> None:
     :return:
         None
     """
-    with open('./device_data.json') as dataFile:
-        data = json.load(dataFile)
-        for device in data['devices_data']:
-            print(device['device_name'], device['ip_address'])
+    try:
+        with open('./device_data.json') as dataFile:
+            data = json.load(dataFile)
+            for device in data['devices_data']:
+                print(device['device_name'], device['ip_address'])
+    except FileNotFoundError:
+        with open('./device_data.json', 'a') as data_file:
+            json.dump(initial_data, data_file, indent=2)
 
 
 def update_json(data: list) -> None:
@@ -100,17 +114,21 @@ def get_proper_name(name: str) -> str:
     return proper_name
 
 
-def get_required_device(id: int) -> int | dict:
+def get_required_device(_id: int) -> int | dict:
     """
     This function checks for if a particular device with given id exists in case of edit or adding a device
-    :param id:
+    :param _id:
     :return:
         -1 (if device not there)
         device dictionary if it's there
     """
-    with open('./device_data.json', 'r') as devices_file:
-        devices: Any = json.load(devices_file)
-        required_device: list = [device for device in devices['devices_data'] if device['id'] == id]
+    try:
+        with open('./device_data.json', 'r') as devices_file:
+            devices: Any = json.load(devices_file)
+            required_device: list = [device for device in devices['devices_data'] if device['id'] == _id]
+    except FileNotFoundError:
+        with open('./device_data.json', 'a') as data_file:
+            json.dump(initial_data, data_file, indent=2)
     return -1 if len(required_device) == 0 else required_device[0]
 
 
@@ -121,22 +139,26 @@ def add_device() -> None:
     :return: None
     """
     curr_id = int(input("Enter the id "))
-    with open('./device_data.json', 'r') as dataFile:
-        device_data = json.load(dataFile)
-        data = device_data['devices_data']
-        flag = True
-        while flag:
-            for i in range(len(data)):
-                if data[i]['id'] == curr_id:
+    try:
+        with open('./device_data.json', 'r') as dataFile:
+            device_data = json.load(dataFile)
+            data = device_data['devices_data']
+            flag = True
+            while flag:
+                for i in range(len(data)):
+                    if data[i]['id'] == curr_id:
+                        flag = False
+                        print("This Id already exists")
+                        curr_id = int(input("Enter new Id: "))
+                        break
+                if not flag:
+                    flag = True
+                elif flag:
                     flag = False
-                    print("This Id already exists")
-                    curr_id = int(input("Enter new Id: "))
-                    break
-            if not flag:
-                flag = True
-            elif flag:
-                flag = False
-        print("The current id is {}".format(curr_id))
+            print("The current id is {}".format(curr_id))
+    except FileNotFoundError:
+        with open('./device_data.json', 'a') as data_file:
+            json.dump(initial_data, data_file, indent=2)
     curr_device_name = input("Enter device name: ")
     flag = True
     while flag:
@@ -156,16 +178,16 @@ def add_device() -> None:
     update_json(data)
 
 
-def edit_device(id: int):
+def edit_device(_id: int):
     """
     Edits the data of a particular device with given id
 
-    :param id:
+    :param _id:
     :return: None
     """
-    required_device = get_required_device(id)
+    required_device = get_required_device(_id)
     if required_device == -1:
-        raise Exception("No device found with id {} to edit".format(id))
+        raise Exception("No device found with id {} to edit".format(_id))
     new_name = input("Enter new name: ")
     if new_name == '':
         new_name = required_device['device_name']
@@ -173,26 +195,34 @@ def edit_device(id: int):
     if new_ip == '':
         new_ip = required_device['ip_address']
     edited_device = {
-        "id": id,
+        "id": _id,
         "device_name": new_name,
         "ip_address": new_ip
     }
-    with open('./device_data.json', 'r') as device_file:
-        devices = json.load(device_file)
-        updated_devices = list(map(lambda device: edited_device if device['id'] == id else device, devices['devices_data']))
+    try:
+        with open('./device_data.json', 'r') as device_file:
+            devices = json.load(device_file)
+            updated_devices = list(map(lambda device: edited_device if device['id'] == _id else device, devices['devices_data']))
+    except FileNotFoundError:
+        with open('./device_data.json', 'a') as data_file:
+            json.dump(initial_data, data_file, indent=2)
     update_json(updated_devices)
 
 
-def delete_device(id):
+def delete_device(_id):
     """
     Deletes the device from the device_data.json with the provided id
 
-    :param id:
+    :param _id:
     :return: None
     """
-    with open('./device_data.json', 'r') as data_file:
-        devices = json.load(data_file)
-        updated_device = list(filter(lambda device: False if device['id'] == id else True, devices['devices_data']))
+    try:
+        with open('./device_data.json', 'r') as data_file:
+            devices = json.load(data_file)
+            updated_device = list(filter(lambda device: False if device['id'] == _id else True, devices['devices_data']))
+    except FileNotFoundError:
+        with open('./device_data.json', 'a') as data_file:
+            json.dump(initial_data, data_file, indent=2)
     update_json(updated_device)
 
 
